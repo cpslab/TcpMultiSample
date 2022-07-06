@@ -12,15 +12,20 @@ public interface ServerToClientData extends Serializable { }
  * @param yourId あなたのID
  * @param clientList 他にチャットに参加しているメンバー
  */
-record Welcome(long yourId, long[] clientList) implements ServerToClientData { }
+record Welcome(long yourId, long[] clientList, Date date) implements ServerToClientData { }
 
 
 /**
  * あらたなクライアントが接続された
  */
-record NewClient(long id) implements ServerToClientData { }
+record NewClient(long id, Date date) implements ServerToClientData { }
+
+/**
+ * クライアントが退出した
+ */
+record LeaveClient(long id, Date date) implements ServerToClientData { }
 
 /**
  * だれかが発言した
  */
-record NewMessage(String message, Date date) implements ServerToClientData { }
+record NewMessage(long id, String message, Date date) implements ServerToClientData { }

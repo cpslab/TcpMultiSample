@@ -3,26 +3,50 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Scanner;
 import java.util.function.Consumer;
 
 public class TcpClient {
-  public static void main(String[] args) throws IOException, ClassNotFoundException {
+  public static void main(String[] args) throws IOException {
     final InetAddress localhost = InetAddress.getLocalHost();
     System.out.println(
         "クライアントを起動しました. これから " + localhost + " のポート番号 " + TcpServer.portNumber + "に接続します");
     final Socket socket = new Socket(localhost, TcpServer.portNumber);
 
     final ObjectInputStream serverToClientStream = new ObjectInputStream(socket.getInputStream());
-    final ServerToClientData response = (ServerToClientData) serverToClientStream.readObject();
-    System.out.println("サーバーからメッセージがきた " + response);
 
-    System.out.println("これから入力した文字をサーバーに送ります");
-
+    final State state = new State();
     setServerMessageCallback(
         serverToClientStream,
         (messageFromServer) -> {
-          System.out.println("サーバーからメッセージがきた " + messageFromServer);
+          if (messageFromServer instanceof Welcome welcome) {
+              logWithDate(welcome.date(), "チャットにようこそ");
+              final long myId = welcome.yourId();
+              state.myId = myId;
+              System.out.println("あなたのIDは " + myId + " です");
+              System.out.println("このチャットルームには");
+              for (long id : welcome.clientList()) {
+                  System.out.println("- " +id);
+              }
+              System.out.println("の" + welcome.clientList().length + "名が参加しています");
+              System.out.println("メッセージを入力して Enter キーで送信");
+              return;
+          }
+          if(messageFromServer instanceof NewClient newClient) {
+              logWithDate(newClient.date(), newClient.id() + "さんが参加しました");
+              return;
+          }
+          if(messageFromServer instanceof  LeaveClient leaveClient) {
+              logWithDate(leaveClient.date(), leaveClient.id() + "さんが退出しました");
+              return;
+          }
+          if(messageFromServer instanceof NewMessage newMessage) {
+              logWithDate(newMessage.date(),   "<"  + newMessage.id() +
+                      (newMessage.id() == state.myId ? "(自分)" : "") +"> " + newMessage.message()
+              );
+          }
         });
 
     final ObjectOutputStream clientToServerStream =
@@ -74,10 +98,18 @@ public class TcpClient {
             })
         .start();
   }
+
+  static void logWithDate(final Date date, final String message) {
+      System.out.println(new SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(date)  + ": " + message);
+  }
 }
 
-class InputThread implements Runnable {
-
-  @Override
-  public void run() {}
+/**
+ * クライアントの状態 (自分自身のIDのみ)
+ */
+class State {
+    /**
+     * 自分自身のID. null になることがあるので注意!
+     */
+    long myId;
 }

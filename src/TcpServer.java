@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.stream.LongStream;
 
 public class TcpServer {
   public static int portNumber = 1234;
@@ -20,14 +19,13 @@ public class TcpServer {
         new ServerThreadManagerHandler() {
           @Override
           public void onConnect(long connectedId) {
-            final long[] ids = serverThreadManager.getIds().toArray();
+            final long[] ids = serverThreadManager.getIdsAndRemoveNotAlive();
             for (long id : ids) {
               try {
                 if (id == connectedId) {
-                  serverThreadManager.sendMessage(id, new Welcome(connectedId, ids));
-
+                  serverThreadManager.sendMessage(id, new Welcome(connectedId, ids, new Date()));
                 } else {
-                  serverThreadManager.sendMessage(id, new NewClient(connectedId));
+                  serverThreadManager.sendMessage(id, new NewClient(connectedId, new Date()));
                 }
               } catch (Exception e) {
                 throw new RuntimeException(e);
@@ -36,24 +34,33 @@ public class TcpServer {
           }
 
           @Override
+          public void onDisconnect(long disconnected) {
+            try {
+              for (final long id : serverThreadManager.getIdsAndRemoveNotAlive()) {
+                serverThreadManager.sendMessage(id, new LeaveClient(disconnected, new Date()));
+              }
+            } catch (Exception e) {
+              throw new RuntimeException(e);
+            }
+          }
+
+          @Override
           public void onMessage(ClientToServerData message, long clientId) {
-            serverThreadManager
-                .getIds()
-                .forEach(
-                    id -> {
-                      try {
-                        serverThreadManager.sendMessage(
-                            id, new NewMessage(message.message(), new Date()));
-                      } catch (Exception e) {
-                        throw new RuntimeException(e);
-                      }
-                    });
+            try {
+              for (final long id : serverThreadManager.getIdsAndRemoveNotAlive()) {
+                serverThreadManager.sendMessage(
+                    id, new NewMessage(clientId, message.message(), new Date()));
+              }
+            } catch (Exception e) {
+              throw new RuntimeException(e);
+            }
           }
         });
   }
 }
 
 class ServerThreadManager {
+  /** */
   final ArrayList<ServerThread> serverThreadArrayList = new ArrayList<>();
 
   /** 接続を受け付ける */
@@ -67,12 +74,12 @@ class ServerThreadManager {
               while (true) {
                 // 接続待ちのスレッド
                 final ServerThread lastServerThread =
-                    new ServerThread(serverSocket, handler::onMessage);
+                    new ServerThread(serverSocket, handler::onMessage, handler::onDisconnect);
                 lastServerThread.start();
 
                 serverThreadArrayList.add(lastServerThread);
                 while (true) {
-                  if (lastServerThread.isConnected) {
+                  if (lastServerThread.state == ServerThreadState.Connected) {
                     handler.onConnect(lastServerThread.getId());
                     break;
                   }
@@ -82,8 +89,11 @@ class ServerThreadManager {
         .start();
   }
 
-  public LongStream getIds() {
-    return serverThreadArrayList.stream().filter(Thread::isAlive).mapToLong(Thread::getId);
+  /** 接続がきれたクライアントのスレッドを取り除き, 今も接続中のクライアントのIDを返す */
+  public long[] getIdsAndRemoveNotAlive() {
+    serverThreadArrayList.removeIf(
+        serverThread -> serverThread.state == ServerThreadState.Disconnected);
+    return serverThreadArrayList.stream().mapToLong(Thread::getId).toArray();
   }
 
   public void sendMessage(long id, ServerToClientData message) throws Exception {
@@ -101,6 +111,9 @@ interface ServerThreadManagerHandler {
   /** 新たにクライアントと接続できた */
   void onConnect(final long id);
 
+  /** クライアントとの接続が切れた */
+  void onDisconnect(final long id);
+
   /** クライアントからメッセージがきた */
   void onMessage(final ClientToServerData message, final long id);
 }
@@ -109,15 +122,20 @@ interface ServerThreadManagerHandler {
 class ServerThread extends Thread {
   final ServerSocket serverSocket;
   final BiConsumer<ClientToServerData, Long> handler;
-  boolean isConnected = false;
+
+  final Consumer<Long> onDisconnect;
+  ServerThreadState state = ServerThreadState.NotConnected;
 
   ObjectOutputStream serverToClientStream = null;
 
   ServerThread(
-      final ServerSocket serverSocket, final BiConsumer<ClientToServerData, Long> handler) {
+      final ServerSocket serverSocket,
+      final BiConsumer<ClientToServerData, Long> handler,
+      final Consumer<Long> onDisconnect) {
     System.out.println("ServerThreadを起動します");
     this.serverSocket = serverSocket;
     this.handler = handler;
+    this.onDisconnect = onDisconnect;
   }
 
   @Override
@@ -126,7 +144,7 @@ class ServerThread extends Thread {
       logWithId(" クライアントとの接続を待機します");
       final Socket socket = serverSocket.accept();
       logWithId("クライアントと接続しました!");
-      isConnected = true;
+      state = ServerThreadState.Connected;
       serverToClientStream = new ObjectOutputStream(socket.getOutputStream());
 
       final ObjectInputStream clientToServerStream = new ObjectInputStream(socket.getInputStream());
@@ -137,7 +155,8 @@ class ServerThread extends Thread {
         handler.accept(clientToServerData, getId());
       }
     } catch (IOException | ClassNotFoundException e) {
-      throw new RuntimeException(e);
+      state = ServerThreadState.Disconnected;
+      onDisconnect.accept(getId());
     }
   }
 
@@ -153,4 +172,10 @@ class ServerThread extends Thread {
   private void logWithId(final String message) {
     System.out.println("[ServerThread id: " + getId() + "] " + message);
   }
+}
+
+enum ServerThreadState {
+  NotConnected,
+  Connected,
+  Disconnected
 }
