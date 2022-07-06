@@ -3,8 +3,8 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.util.Date;
 import java.util.Scanner;
+import java.util.function.Consumer;
 
 public class TcpClient {
   public static void main(String[] args) throws IOException, ClassNotFoundException {
@@ -19,17 +19,65 @@ public class TcpClient {
 
     System.out.println("これから入力した文字をサーバーに送ります");
 
-    final Scanner consoleInputScanner = new Scanner(System.in);
+    setServerMessageCallback(
+        serverToClientStream,
+        (messageFromServer) -> {
+          System.out.println("サーバーからメッセージがきた " + messageFromServer);
+        });
 
     final ObjectOutputStream clientToServerStream =
         new ObjectOutputStream(socket.getOutputStream());
-    // クライアントも受け取る用のスレッドが必要みたい..?
-    while (true) {
-      final String inputtedMessage = consoleInputScanner.nextLine();
-      final ClientToServerData clientToServerData = new ClientToServerData(inputtedMessage, new Date());
-      System.out.println("サーバーに " + clientToServerData +  " を送ります");
-      clientToServerStream.writeObject(clientToServerData);
-      clientToServerStream.flush();
-    }
+
+    setConsoleInputCallback(
+        (inputtedMessage) -> {
+          try {
+            final ClientToServerData clientToServerData = new ClientToServerData(inputtedMessage);
+            System.out.println("サーバーに " + clientToServerData + " を送ります");
+            clientToServerStream.writeObject(clientToServerData);
+            clientToServerStream.flush();
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+        });
   }
+
+  static void setServerMessageCallback(
+      final ObjectInputStream serverToClientStream, final Consumer<ServerToClientData> onMessage) {
+
+    new Thread(
+            () -> {
+              try {
+                while (true) {
+                  onMessage.accept((ServerToClientData) serverToClientStream.readObject());
+                }
+
+              } catch (IOException | ClassNotFoundException e) {
+                throw new RuntimeException(e);
+              }
+            })
+        .start();
+  }
+
+  /**
+   * コンソールから入力を受け付ける
+   *
+   * @param onInput 文字を1行入力されたときに毎回呼ばれる
+   */
+  static void setConsoleInputCallback(final Consumer<String> onInput) {
+    final Scanner consoleInputScanner = new Scanner(System.in);
+
+    new Thread(
+            () -> {
+              while (true) {
+                onInput.accept(consoleInputScanner.nextLine());
+              }
+            })
+        .start();
+  }
+}
+
+class InputThread implements Runnable {
+
+  @Override
+  public void run() {}
 }

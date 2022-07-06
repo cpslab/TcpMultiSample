@@ -1,14 +1,26 @@
 import java.io.Serializable;
-
-public interface ServerToClientData extends Serializable {
-}
+import java.util.ArrayList;
+import java.util.Date;
 
 /**
- * 接続が完了し ID が割り振られた
+ * サーバーからクライアントに送るデータ
  */
-record AssignedId(long yourId) implements ServerToClientData { }
+public interface ServerToClientData extends Serializable { }
+
+/**
+ * 接続が完了した
+ * @param yourId あなたのID
+ * @param clientList 他にチャットに参加しているメンバー
+ */
+record Welcome(long yourId, long[] clientList) implements ServerToClientData { }
+
+
+/**
+ * あらたなクライアントが接続された
+ */
+record NewClient(long id) implements ServerToClientData { }
 
 /**
  * だれかが発言した
  */
-record NewMessage(String message) implements ServerToClientData { }
+record NewMessage(String message, Date date) implements ServerToClientData { }
