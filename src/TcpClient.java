@@ -14,7 +14,7 @@ public class TcpClient {
     final Socket socket = new Socket(localhost, TcpServer.portNumber);
 
     final ObjectInputStream serverToClientStream = new ObjectInputStream(socket.getInputStream());
-    final ResponseData response = (ResponseData) serverToClientStream.readObject();
+    final ServerToClientData response = (ServerToClientData) serverToClientStream.readObject();
     System.out.println("サーバーからメッセージがきた " + response);
 
     System.out.println("これから入力した文字をサーバーに送ります");
@@ -23,11 +23,12 @@ public class TcpClient {
 
     final ObjectOutputStream clientToServerStream =
         new ObjectOutputStream(socket.getOutputStream());
+    // クライアントも受け取る用のスレッドが必要みたい..?
     while (true) {
       final String inputtedMessage = consoleInputScanner.nextLine();
-      final RequestData requestData = new RequestData(inputtedMessage, new Date());
-      System.out.println("サーバーに " + requestData +  " を送ります");
-      clientToServerStream.writeObject(requestData);
+      final ClientToServerData clientToServerData = new ClientToServerData(inputtedMessage, new Date());
+      System.out.println("サーバーに " + clientToServerData +  " を送ります");
+      clientToServerStream.writeObject(clientToServerData);
       clientToServerStream.flush();
     }
   }

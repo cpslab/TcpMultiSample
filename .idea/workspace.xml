@@ -5,17 +5,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="72afa8b8-a354-43fd-ad0b-0936a24bb015" name="変更" comment="">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/google-java-format.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/TcpMultiSample.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/RequestData.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/ResponseData.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/TcpClient.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/TcpServer.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/uiDesigner.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/ServerToClientData.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/RequestData.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/ClientToServerData.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ResponseData.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/TcpClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/TcpClient.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/TcpServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/TcpServer.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,12 +45,13 @@
     "ASKED_ADD_EXTERNAL_FILES": "true",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "project.structure.last.edited": "プロジェクト",
     "project.structure.proportion": "0.0",
     "project.structure.side.proportion": "0.2"
   }
 }]]></component>
-  <component name="RunManager" selected="アプリケーション.TcpClientB">
+  <component name="RunManager" selected="アプリケーション.TcpServer">
     <configuration name="TcpClientA" type="Application" factoryName="Application" temporary="true">
       <option name="MAIN_CLASS_NAME" value="TcpClient" />
       <module name="TcpMultiSample" />
@@ -63,6 +60,13 @@
       </method>
     </configuration>
     <configuration name="TcpClientB" type="Application" factoryName="Application">
+      <option name="MAIN_CLASS_NAME" value="TcpClient" />
+      <module name="TcpMultiSample" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="TcpClientC" type="Application" factoryName="Application">
       <option name="MAIN_CLASS_NAME" value="TcpClient" />
       <module name="TcpMultiSample" />
       <method v="2">
@@ -79,6 +83,7 @@
     <list>
       <item itemvalue="アプリケーション.TcpClientA" />
       <item itemvalue="アプリケーション.TcpClientB" />
+      <item itemvalue="アプリケーション.TcpClientC" />
       <item itemvalue="アプリケーション.TcpServer" />
     </list>
     <recent_temporary>
