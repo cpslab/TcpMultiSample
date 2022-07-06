@@ -7,6 +7,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Scanner;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 public class TcpClient {
   public static void main(String[] args) throws IOException {
@@ -15,23 +16,18 @@ public class TcpClient {
         "クライアントを起動しました. これから " + localhost + " のポート番号 " + TcpServer.portNumber + "に接続します");
     final Socket socket = new Socket(localhost, TcpServer.portNumber);
 
-    final ObjectInputStream serverToClientStream = new ObjectInputStream(socket.getInputStream());
-
     final State state = new State();
     setServerMessageCallback(
-        serverToClientStream,
+            new ObjectInputStream(socket.getInputStream()),
         (messageFromServer) -> {
           if (messageFromServer instanceof Welcome welcome) {
               logWithDate(welcome.date(), "チャットにようこそ");
               final long myId = welcome.yourId();
               state.myId = myId;
               System.out.println("あなたのIDは " + myId + " です");
-              System.out.println("このチャットルームには");
-              for (long id : welcome.clientList()) {
-                  System.out.println("- " +id);
-              }
-              System.out.println("の" + welcome.clientList().length + "名が参加しています");
-              System.out.println("メッセージを入力して Enter キーで送信");
+              logParticipant(welcome.clientList());
+              System.out.println("メッセージを入力して Enter キーで 全員に送信");
+              System.out.println("/tell 12 message で 12 に対してプライベートメッセージを送信");
               return;
           }
           if(messageFromServer instanceof NewClient newClient) {
@@ -46,6 +42,15 @@ public class TcpClient {
               logWithDate(newMessage.date(),   "<"  + newMessage.id() +
                       (newMessage.id() == state.myId ? "(自分)" : "") +"> " + newMessage.message()
               );
+              return;
+          }
+          if(messageFromServer instanceof  NewPrivateMessage newPrivateMessage) {
+              logWithDate(newPrivateMessage.date(), newPrivateMessage.id() + "からプライベートメッセージを受け取りました " + newPrivateMessage.message());
+              return;
+          }
+          if(messageFromServer instanceof  InvalidPrivateId invalidPrivateId) {
+              logWithDate(invalidPrivateId.date(), invalidPrivateId.id() + "は現在このチャットにはいません");
+              logParticipant(invalidPrivateId.clientList());
           }
         });
 
@@ -54,16 +59,35 @@ public class TcpClient {
 
     setConsoleInputCallback(
         (inputtedMessage) -> {
-          try {
-            final ClientToServerData clientToServerData = new ClientToServerData(inputtedMessage);
-            System.out.println("サーバーに " + clientToServerData + " を送ります");
-            clientToServerStream.writeObject(clientToServerData);
-            clientToServerStream.flush();
+            try {
+              final var matcher = Pattern.compile("/tell (.+) ([\\s\\S]+)").matcher(inputtedMessage);
+              if(matcher.matches()) {
+                  sendMessageToServer(clientToServerStream, new PrivateMessage(Long.parseLong(matcher.group(1))
+                          , matcher.group(2))
+                  );
+              } else {
+                  sendMessageToServer(clientToServerStream, new GlobalMessage(inputtedMessage));
+              }
           } catch (IOException e) {
             throw new RuntimeException(e);
           }
         });
   }
+
+  static void logParticipant(final long[] clientList) {
+      System.out.println("このチャットルームには");
+      for (long id : clientList) {
+          System.out.println("- " +id);
+      }
+      System.out.println("の" + clientList.length + "名が参加しています");
+  }
+
+  static void sendMessageToServer(final ObjectOutputStream clientToServerStream, final ClientToServerData message) throws IOException {
+      System.out.println("サーバーに " + message + " を送ります");
+    clientToServerStream.writeObject(message);
+          clientToServerStream.flush();
+  }
+
 
   static void setServerMessageCallback(
       final ObjectInputStream serverToClientStream, final Consumer<ServerToClientData> onMessage) {

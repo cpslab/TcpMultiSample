@@ -1,5 +1,4 @@
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Date;
 
 /**
@@ -29,3 +28,14 @@ record LeaveClient(long id, Date date) implements ServerToClientData { }
  * だれかが発言した
  */
 record NewMessage(long id, String message, Date date) implements ServerToClientData { }
+
+/**
+ * プライベートメッセージを受信した
+ */
+record NewPrivateMessage(long id, String message, Date date) implements ServerToClientData { }
+
+
+/**
+ * プライベートメッセージの送信先のIDの人がチャットにいない
+ */
+record InvalidPrivateId(long id, long[] clientList, Date date) implements ServerToClientData { }

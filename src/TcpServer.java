@@ -4,6 +4,7 @@ import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -47,9 +48,21 @@ public class TcpServer {
           @Override
           public void onMessage(ClientToServerData message, long clientId) {
             try {
-              for (final long id : serverThreadManager.getIdsAndRemoveNotAlive()) {
-                serverThreadManager.sendMessage(
-                    id, new NewMessage(clientId, message.message(), new Date()));
+              final long[] ids = serverThreadManager.getIdsAndRemoveNotAlive();
+              if(message instanceof PrivateMessage privateMessage) {
+                System.out.println(Arrays.toString(ids) + "  " + privateMessage.id());
+                try {
+                  serverThreadManager.sendMessage(privateMessage.id(), new NewPrivateMessage(clientId, privateMessage.message(), new Date()));
+                } catch (ClientNotFound e) {
+                  serverThreadManager.sendMessage(clientId, new InvalidPrivateId(privateMessage.id(), ids, new Date()));
+                }
+                return;
+              }
+              if(message instanceof GlobalMessage globalMessage) {
+                for (final long id : serverThreadManager.getIdsAndRemoveNotAlive()) {
+                  serverThreadManager.sendMessage(
+                          id, new NewMessage(clientId, globalMessage.message(), new Date()));
+                }
               }
             } catch (Exception e) {
               throw new RuntimeException(e);
@@ -60,7 +73,6 @@ public class TcpServer {
 }
 
 class ServerThreadManager {
-  /** */
   final ArrayList<ServerThread> serverThreadArrayList = new ArrayList<>();
 
   /** 接続を受け付ける */
@@ -71,19 +83,21 @@ class ServerThreadManager {
 
     new Thread(
             () -> {
-              while (true) {
-                // 接続待ちのスレッド
-                final ServerThread lastServerThread =
-                    new ServerThread(serverSocket, handler::onMessage, handler::onDisconnect);
-                lastServerThread.start();
-
-                serverThreadArrayList.add(lastServerThread);
+              try {
                 while (true) {
-                  if (lastServerThread.state == ServerThreadState.Connected) {
-                    handler.onConnect(lastServerThread.getId());
-                    break;
-                  }
+                  System.out.println("新たなクライアントとの接続を待機しています");
+                  final Socket socket = serverSocket.accept();
+                  System.out.println("新たにクライアントと接続しました!");
+                  // クライアントからメッセージを受け取るスレッド
+                  final ServerThread lastServerThread =
+                      new ServerThread(socket, handler::onMessage, handler::onDisconnect);
+
+                  serverThreadArrayList.add(lastServerThread);
+                  lastServerThread.start();
+                  handler.onConnect(lastServerThread.getId());
                 }
+              } catch (IOException e) {
+                throw new RuntimeException(e);
               }
             })
         .start();
@@ -92,18 +106,24 @@ class ServerThreadManager {
   /** 接続がきれたクライアントのスレッドを取り除き, 今も接続中のクライアントのIDを返す */
   public long[] getIdsAndRemoveNotAlive() {
     serverThreadArrayList.removeIf(
-        serverThread -> serverThread.state == ServerThreadState.Disconnected);
+        serverThread -> serverThread.isDisconnected);
     return serverThreadArrayList.stream().mapToLong(Thread::getId).toArray();
   }
 
-  public void sendMessage(long id, ServerToClientData message) throws Exception {
+  public void sendMessage(long id, ServerToClientData message) throws ClientNotFound, IOException {
     for (final ServerThread serverThread : serverThreadArrayList) {
       if (serverThread.getId() == id) {
         serverThread.sendDataToClient(message);
         return;
       }
     }
-    throw new Exception("指定したID(" + id + ")のスレッドに送信できなかった");
+    throw new ClientNotFound(id );
+  }
+}
+
+class ClientNotFound extends Exception {
+  ClientNotFound(final long id) {
+    super("指定したID(" + id + ")のスレッドに送信できなかった");
   }
 }
 
@@ -118,22 +138,22 @@ interface ServerThreadManagerHandler {
   void onMessage(final ClientToServerData message, final long id);
 }
 
-// 継承よりも, Runnable を実装したほうが良さそう
+/** クライアントからメッセージを受け取り, 送信するためのスレッド */
 class ServerThread extends Thread {
-  final ServerSocket serverSocket;
+  final Socket socket;
   final BiConsumer<ClientToServerData, Long> handler;
 
   final Consumer<Long> onDisconnect;
-  ServerThreadState state = ServerThreadState.NotConnected;
+  boolean isDisconnected = false;
 
   ObjectOutputStream serverToClientStream = null;
 
   ServerThread(
-      final ServerSocket serverSocket,
+      final Socket socket,
       final BiConsumer<ClientToServerData, Long> handler,
       final Consumer<Long> onDisconnect) {
     System.out.println("ServerThreadを起動します");
-    this.serverSocket = serverSocket;
+    this.socket = socket;
     this.handler = handler;
     this.onDisconnect = onDisconnect;
   }
@@ -141,10 +161,6 @@ class ServerThread extends Thread {
   @Override
   public void run() {
     try {
-      logWithId(" クライアントとの接続を待機します");
-      final Socket socket = serverSocket.accept();
-      logWithId("クライアントと接続しました!");
-      state = ServerThreadState.Connected;
       serverToClientStream = new ObjectOutputStream(socket.getOutputStream());
 
       final ObjectInputStream clientToServerStream = new ObjectInputStream(socket.getInputStream());
@@ -155,7 +171,7 @@ class ServerThread extends Thread {
         handler.accept(clientToServerData, getId());
       }
     } catch (IOException | ClassNotFoundException e) {
-      state = ServerThreadState.Disconnected;
+      isDisconnected = true;
       onDisconnect.accept(getId());
     }
   }
@@ -174,8 +190,3 @@ class ServerThread extends Thread {
   }
 }
 
-enum ServerThreadState {
-  NotConnected,
-  Connected,
-  Disconnected
-}
