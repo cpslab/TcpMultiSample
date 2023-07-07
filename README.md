@@ -1,19 +1,19 @@
-# TCP で複数のクライアントと1つのサーバーがやりとりするチャット コンソールアプリ
+# TCP で複数のクライアントと1つのサーバーがやりとりするチャット コンソールアプリ (シンプルバージョン)
 
-シンプルバージョン https://github.com/cpslab/TcpMultiSample/tree/simple
+普通バージョン https://github.com/cpslab/TcpMultiSample
 
 ## サーバーの起動
 
 ```sh
 cd ./src
-javac --enable-preview --source 20 TcpServer.java
-java --enable-preview TcpServer
+javac TcpServer.java
+java TcpServer
 ```
 
 ## クライアントの起動
 
 ```sh
 cd ./src
-javac --enable-preview --source 20 TcpClient.java
-java --enable-preview TcpClient
+javac TcpClient.java
+java TcpClient
 ```
