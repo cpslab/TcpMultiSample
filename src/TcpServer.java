@@ -94,7 +94,7 @@ class ServerThreadManager {
 
                   serverThreadArrayList.add(lastServerThread);
                   lastServerThread.start();
-                  handler.onConnect(lastServerThread.getId());
+                  handler.onConnect(lastServerThread.threadId());
                 }
               } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -107,12 +107,12 @@ class ServerThreadManager {
   public long[] getIdsAndRemoveNotAlive() {
     serverThreadArrayList.removeIf(
         serverThread -> serverThread.isDisconnected);
-    return serverThreadArrayList.stream().mapToLong(Thread::getId).toArray();
+    return serverThreadArrayList.stream().mapToLong(Thread::threadId).toArray();
   }
 
   public void sendMessage(long id, ServerToClientData message) throws ClientNotFound, IOException {
     for (final ServerThread serverThread : serverThreadArrayList) {
-      if (serverThread.getId() == id) {
+      if (serverThread.threadId() == id) {
         serverThread.sendDataToClient(message);
         return;
       }
@@ -168,11 +168,11 @@ class ServerThread extends Thread {
         final ClientToServerData clientToServerData =
             (ClientToServerData) clientToServerStream.readObject();
         logWithId("クライアントから " + clientToServerData + "を受け取りました");
-        handler.accept(clientToServerData, getId());
+        handler.accept(clientToServerData, threadId());
       }
     } catch (IOException | ClassNotFoundException e) {
       isDisconnected = true;
-      onDisconnect.accept(getId());
+      onDisconnect.accept(threadId());
     }
   }
 
@@ -186,7 +186,7 @@ class ServerThread extends Thread {
   }
 
   private void logWithId(final String message) {
-    System.out.println("[ServerThread id: " + getId() + "] " + message);
+    System.out.println("[ServerThread id: " + threadId() + "] " + message);
   }
 }
 
