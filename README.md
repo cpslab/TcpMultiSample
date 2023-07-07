@@ -1,5 +1,7 @@
 # TCP で複数のクライアントと1つのサーバーがやりとりするチャット コンソールアプリ
 
+シンプルバージョン https://github.com/cpslab/TcpMultiSample/tree/simple
+
 ## サーバーの起動
 
 ```sh
