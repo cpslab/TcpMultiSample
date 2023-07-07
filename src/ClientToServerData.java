@@ -3,7 +3,7 @@ import java.io.Serializable;
 /**
  * クライアントからサーバーに送るデータ
  */
-public interface ClientToServerData extends Serializable {}
+public sealed interface ClientToServerData extends Serializable {}
 
 record GlobalMessage(String message) implements ClientToServerData {}
 

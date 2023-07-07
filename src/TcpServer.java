@@ -49,20 +49,22 @@ public class TcpServer {
           public void onMessage(ClientToServerData message, long clientId) {
             try {
               final long[] ids = serverThreadManager.getIdsAndRemoveNotAlive();
-              if(message instanceof PrivateMessage privateMessage) {
-                System.out.println(Arrays.toString(ids) + "  " + privateMessage.id());
-                try {
-                  serverThreadManager.sendMessage(privateMessage.id(), new NewPrivateMessage(clientId, privateMessage.message(), new Date()));
-                } catch (ClientNotFound e) {
-                  serverThreadManager.sendMessage(clientId, new InvalidPrivateId(privateMessage.id(), ids, new Date()));
-                }
-                return;
-              }
-              if(message instanceof GlobalMessage globalMessage) {
-                for (final long id : serverThreadManager.getIdsAndRemoveNotAlive()) {
-                  serverThreadManager.sendMessage(
-                          id, new NewMessage(clientId, globalMessage.message(), new Date()));
-                }
+              switch (message) {
+                case PrivateMessage privateMessage:
+                  System.out.println(Arrays.toString(ids) + "  " + privateMessage.id());
+                  try {
+                    serverThreadManager.sendMessage(privateMessage.id(),
+                        new NewPrivateMessage(clientId, privateMessage.message(), new Date()));
+                  } catch (ClientNotFound e) {
+                    serverThreadManager.sendMessage(clientId,
+                        new InvalidPrivateId(privateMessage.id(), ids, new Date()));
+                  }
+                  return;
+                case GlobalMessage globalMessage:
+                  for (final long id : serverThreadManager.getIdsAndRemoveNotAlive()) {
+                    serverThreadManager.sendMessage(
+                        id, new NewMessage(clientId, globalMessage.message(), new Date()));
+                  }
               }
             } catch (Exception e) {
               throw new RuntimeException(e);
@@ -73,7 +75,7 @@ public class TcpServer {
 }
 
 class ServerThreadManager {
-  final ArrayList<ServerThread> serverThreadArrayList = new ArrayList<>();
+  final ArrayList<Server1ClientThread> serverThreadArrayList = new ArrayList<>();
 
   /** 接続を受け付ける */
   public void listen(final int portNumber, final ServerThreadManagerHandler handler)
@@ -82,24 +84,24 @@ class ServerThreadManager {
     System.out.println("TCPサーバーを起動しました. ポート番号 " + portNumber + " で接続を受け付けています");
 
     new Thread(
-            () -> {
-              try {
-                while (true) {
-                  System.out.println("新たなクライアントとの接続を待機しています");
-                  final Socket socket = serverSocket.accept();
-                  System.out.println("新たにクライアントと接続しました!");
-                  // クライアントからメッセージを受け取るスレッド
-                  final ServerThread lastServerThread =
-                      new ServerThread(socket, handler::onMessage, handler::onDisconnect);
+        () -> {
+          try {
+            while (true) {
+              System.out.println("新たなクライアントとの接続を待機しています");
+              final Socket socket = serverSocket.accept();
+              System.out.println("新たにクライアントと接続しました!");
+              // クライアントからメッセージを受け取るスレッド
+              final Server1ClientThread lastServerThread = new Server1ClientThread(socket, handler::onMessage,
+                  handler::onDisconnect);
 
-                  serverThreadArrayList.add(lastServerThread);
-                  lastServerThread.start();
-                  handler.onConnect(lastServerThread.threadId());
-                }
-              } catch (IOException e) {
-                throw new RuntimeException(e);
-              }
-            })
+              serverThreadArrayList.add(lastServerThread);
+              lastServerThread.start();
+              handler.onConnect(lastServerThread.threadId());
+            }
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+        })
         .start();
   }
 
@@ -111,13 +113,13 @@ class ServerThreadManager {
   }
 
   public void sendMessage(long id, ServerToClientData message) throws ClientNotFound, IOException {
-    for (final ServerThread serverThread : serverThreadArrayList) {
+    for (final Server1ClientThread serverThread : serverThreadArrayList) {
       if (serverThread.threadId() == id) {
         serverThread.sendDataToClient(message);
         return;
       }
     }
-    throw new ClientNotFound(id );
+    throw new ClientNotFound(id);
   }
 }
 
@@ -138,8 +140,10 @@ interface ServerThreadManagerHandler {
   void onMessage(final ClientToServerData message, final long id);
 }
 
-/** クライアントからメッセージを受け取り, 送信するためのスレッド */
-class ServerThread extends Thread {
+/**
+ * 1つのクライアントからメッセージを受け取り, 送信するためのスレッド
+ */
+class Server1ClientThread extends Thread {
   final Socket socket;
   final BiConsumer<ClientToServerData, Long> handler;
 
@@ -148,11 +152,11 @@ class ServerThread extends Thread {
 
   ObjectOutputStream serverToClientStream = null;
 
-  ServerThread(
+  Server1ClientThread(
       final Socket socket,
       final BiConsumer<ClientToServerData, Long> handler,
       final Consumer<Long> onDisconnect) {
-    System.out.println("ServerThreadを起動します");
+    System.out.println("Server1ClientThreadを起動します");
     this.socket = socket;
     this.handler = handler;
     this.onDisconnect = onDisconnect;
@@ -165,8 +169,7 @@ class ServerThread extends Thread {
 
       final ObjectInputStream clientToServerStream = new ObjectInputStream(socket.getInputStream());
       while (true) {
-        final ClientToServerData clientToServerData =
-            (ClientToServerData) clientToServerStream.readObject();
+        final ClientToServerData clientToServerData = (ClientToServerData) clientToServerStream.readObject();
         logWithId("クライアントから " + clientToServerData + "を受け取りました");
         handler.accept(clientToServerData, threadId());
       }
@@ -176,6 +179,9 @@ class ServerThread extends Thread {
     }
   }
 
+  /**
+   * クライアントにデータを送信する
+   */
   public void sendDataToClient(final ServerToClientData serverToClientData) throws IOException {
     // まだ接続していないときは, 送信しない
     if (serverToClientStream == null) {
@@ -186,7 +192,6 @@ class ServerThread extends Thread {
   }
 
   private void logWithId(final String message) {
-    System.out.println("[ServerThread id: " + threadId() + "] " + message);
+    System.out.println("[Server1ClientThread id: " + threadId() + "] " + message);
   }
 }
-
