@@ -17,3 +17,9 @@ cd ./src
 javac TcpClient.java
 java TcpClient
 ```
+
+## ラムダ式を試す
+
+```sh
+java ./src/Lambda.java
+```

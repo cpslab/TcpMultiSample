@@ -9,6 +9,9 @@ import java.util.Date;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+/**
+ * チャット コンソールアプリ の サーバー
+ */
 public class TcpServer {
   public static int portNumber = 1234;
 
